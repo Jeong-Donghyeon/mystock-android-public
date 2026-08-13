@@ -1,0 +1,34 @@
+<resources>
+    <!-- 데이터가 있는 화면의 새로고침 실패 — 요청 실패라 스낵바 한 줄로 알린다 -->
+    <string name="common_load_failed">불러오지 못했습니다</string>
+
+    <!-- 알림 설정은 설정 화면과 홈이 같은 문구로 안내한다 -->
+    <string name="common_notification_failed">알림 설정을 바꾸지 못했습니다</string>
+
+    <!-- 권한을 영구 거부하면 앱에서는 다시 물어볼 수 없어 시스템 설정으로 안내한다 -->
+    <string name="common_notification_permission">알림 권한이 없습니다 — 휴대폰 설정에서 허용해 주세요</string>
+
+    <!-- 설정 행과 :app이 여는 라이선스 화면의 제목이 같아야 한다 -->
+    <string name="common_licenses">오픈소스 라이선스</string>
+
+    <!-- 운용 성과와 전략 상세가 같은 합산 카드·운용 내역 문구를 쓴다 -->
+    <string name="common_total_pnl">합산 손익</string>
+    <string name="common_runs_count">운용 내역 %1$d</string>
+    <string name="common_no_run">아직 운용한 적 없습니다</string>
+
+    <!-- 홈 통계 셀과 운용 집계 표가 같은 라벨을 쓴다 -->
+    <string name="common_running_hours">운용시간</string>
+
+    <!-- 홈 상태 카드와 전략 상세의 시작 계좌 카드가 같은 라벨을 쓴다 -->
+    <string name="common_cash">예수금</string>
+
+    <!-- 홈과 전략 상세의 계좌 시트 제목이 같다 -->
+    <string name="common_account_sheet_title">계좌</string>
+
+    <!-- 운용 집계 표의 칸 라벨 -->
+    <string name="common_win_rate">승률</string>
+    <string name="common_median_return">중위 수익률</string>
+    <string name="common_best_return">최고 수익률</string>
+    <string name="common_worst_return">최저 수익률</string>
+    <string name="common_average_return">평균 수익률</string>
+</resources>

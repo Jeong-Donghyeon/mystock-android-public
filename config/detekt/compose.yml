@@ -1,0 +1,10 @@
+Compose:
+  CompositionLocalAllowlist:
+    allowedCompositionLocals:
+      - LocalMyStockColors
+      - LocalMyStockTypography
+      - LocalSpacing
+      - LocalRadius
+      - LocalIconSize
+      - LocalSnackbarHostState
+      - LocalStroke

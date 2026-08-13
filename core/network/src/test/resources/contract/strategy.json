@@ -1,0 +1,11 @@
+{
+  "key": "ma-cross",
+  "displayName": "이동평균 교차",
+  "description": "단기·장기 이동평균 교차로 매수·매도",
+  "version": "0.2.0",
+  "markets": ["KR", "US"],
+  "conditions": [
+    { "label": "매수", "text": "5일선이 20일선을 상향 돌파" },
+    { "label": "매도", "text": "5일선이 20일선을 하향 돌파" }
+  ]
+}

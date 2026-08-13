@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "288089416931",
+    "project_id": "mystock-fdad9",
+    "storage_bucket": "mystock-fdad9.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:288089416931:android:0dbc89aad940665165d1d6",
+        "android_client_info": {
+          "package_name": "com.donghyeon.mystock"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDonB3Qsn3RtSw8-GCqc8wEBQtsphXJktc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

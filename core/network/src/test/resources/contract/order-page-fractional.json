@@ -1,0 +1,14 @@
+{
+  "totalCount": 1,
+  "orders": [
+    {
+      "id": "ord-1",
+      "stockName": "삼성전자",
+      "side": "BUY",
+      "quantity": 2.5,
+      "price": { "value": 68400, "currency": "KRW" },
+      "amount": 171000,
+      "realizedPnl": null
+    }
+  ]
+}

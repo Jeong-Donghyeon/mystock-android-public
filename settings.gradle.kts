@@ -1,4 +1,5 @@
 pluginManagement {
+    includeBuild("build-logic")
     repositories {
         google {
             content {
@@ -11,9 +12,11 @@ pluginManagement {
         gradlePluginPortal()
     }
 }
+
 plugins {
     id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
 }
+
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
@@ -24,4 +27,12 @@ dependencyResolutionManagement {
 
 rootProject.name = "mystock-android"
 include(":app")
- 
+include(":design")
+include(":core:model")
+include(":core:network")
+include(":core:data")
+include(":feature:common")
+include(":feature:account")
+include(":feature:settings")
+include(":feature:strategy")
+include(":konsist")

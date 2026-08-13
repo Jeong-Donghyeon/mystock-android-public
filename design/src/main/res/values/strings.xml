@@ -1,0 +1,5 @@
+<resources>
+    <!-- MsFailedContent가 고정으로 쓰는 문구 -->
+    <string name="ms_failed_title">서버에 연결할 수 없습니다</string>
+    <string name="ms_failed_description">아래로 당겨 다시 시도하세요</string>
+</resources>

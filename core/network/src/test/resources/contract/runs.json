@@ -1,0 +1,15 @@
+{
+  "accountName": "토스증권",
+  "runs": [
+    {
+      "id": "run-5",
+      "strategyName": "이동평균 교차",
+      "version": "0.2.0",
+      "accountId": "toss-live",
+      "accountName": "토스증권",
+      "outcome": "RUNNING",
+      "hours": 17,
+      "pnl": { "amount": 983259, "percent": 17.93 }
+    }
+  ]
+}

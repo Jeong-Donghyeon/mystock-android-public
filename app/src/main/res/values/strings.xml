@@ -1,3 +1,5 @@
 <resources>
-    <string name="app_name">mystock-android</string>
+    <string name="app_name">MyStock</string>
+    <string name="notification_channel_id" translatable="false">trading</string>
+    <string name="notification_channel_name">매매 알림</string>
 </resources>

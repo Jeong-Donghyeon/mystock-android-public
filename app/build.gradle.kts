@@ -1,54 +1,49 @@
 plugins {
-    alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.mystock.android.application)
+    alias(libs.plugins.mystock.android.compose)
+    alias(libs.plugins.mystock.hilt)
+    alias(libs.plugins.oss.licenses)
+    alias(libs.plugins.google.services)
 }
 
 android {
     namespace = "com.donghyeon.mystock"
-    compileSdk {
-        version = release(37)
-    }
-
     defaultConfig {
         applicationId = "com.donghyeon.mystock"
-        minSdk = 28
-        targetSdk = 37
         versionCode = 1
-        versionName = "1.0"
-
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        versionName = "0.1.0"
     }
-
+    buildFeatures {
+        buildConfig = true
+    }
+    // onNewToken은 SDK가 onRegistered로 대체하며 deprecate했는데 검사는 아직 그걸 요구한다
+    lint.disable += "MissingFirebaseInstanceTokenRefresh"
     buildTypes {
         release {
             optimization {
-                enable = false
+                enable = true
             }
         }
-    }
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
-    }
-    buildFeatures {
-        compose = true
     }
 }
 
 dependencies {
-    implementation(platform(libs.androidx.compose.bom))
+    implementation(project(":design"))
+    implementation(project(":core:data"))
+    implementation(project(":feature:account"))
+    implementation(project(":feature:common"))
+    implementation(project(":feature:settings"))
+    implementation(project(":feature:strategy"))
     implementation(libs.androidx.activity.compose)
-    implementation(libs.androidx.compose.material3)
-    implementation(libs.androidx.compose.ui)
-    implementation(libs.androidx.compose.ui.graphics)
-    implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
-    testImplementation(libs.junit)
-    androidTestImplementation(platform(libs.androidx.compose.bom))
-    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
-    androidTestImplementation(libs.androidx.espresso.core)
-    androidTestImplementation(libs.androidx.junit)
-    debugImplementation(libs.androidx.compose.ui.test.manifest)
-    debugImplementation(libs.androidx.compose.ui.tooling)
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.lifecycle.viewmodel.navigation3)
+    implementation(libs.androidx.navigation3.runtime)
+    implementation(libs.androidx.navigation3.ui)
+    implementation(libs.androidx.hilt.lifecycle.viewmodel.compose)
+    implementation(libs.play.services.oss.licenses)
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.messaging)
+    testImplementation(libs.robolectric)
 }

@@ -1,0 +1,15 @@
+{
+  "valuationAmount": 4326259,
+  "purchaseAmount": 4292889,
+  "cashAmount": 2140000,
+  "holdings": [
+    {
+      "name": "AAPL",
+      "quantity": 4,
+      "currentPrice": { "value": 231.40, "currency": "USD" },
+      "averagePrice": { "value": 224.10, "currency": "USD" },
+      "valuationAmount": 1242618,
+      "pnl": { "amount": 39201, "percent": 3.26 }
+    }
+  ]
+}

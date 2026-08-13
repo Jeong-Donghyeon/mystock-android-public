@@ -1,0 +1,965 @@
+openapi: 3.1.0
+info:
+  title: MyStock 서버 API
+  version: 0.1.0
+  description: |
+    전략 기반 자동매매 시스템의 백엔드가 안드로이드 앱에 제공하는 API. 이 문서가 계약의 정의이고,
+    서버도 앱도 여기에 맞춘다.
+
+    용어: **계좌**는 브로커와 환경(모의·실전)으로 정해지는 실행 단위다. **전략**은 서버 코드로 구현된 매매 규칙이고,
+    앱은 고르기만 한다. **Run**은 매매를 시작해 회수나 청산으로 끝날 때까지의 한 구간이다.
+
+    - 시각은 ISO-8601 UTC, 원화 금액은 정수, 현지 통화 가격은 소수(통화가 자리수를 정한다),
+      퍼센트는 소수다 — `0.39`는 0.39%를 뜻한다.
+    - `null`인 필드도 키는 항상 온다. 이 문서에서 `type: 'null'`을 허용하는 필드가 그것이다.
+    - 인증 없이 부를 수 있는 것은 `/auth/keys`와 `/auth/refresh`뿐이다.
+    - 오류 본문은 어디서나 `Error`다. 아래에 적지 않은 것으로, 잘못된 요청 본문·빠진 필수 파라미터는
+      400 `BAD_REQUEST`, 없는 경로는 404 `NOT_FOUND`, 맞지 않는 메서드는 405 `METHOD_NOT_ALLOWED`,
+      그 밖의 실패는 500 `INTERNAL_ERROR`로 온다.
+servers:
+  - url: https://{domain}/api/v1
+    description: 운영
+    variables:
+      domain:
+        default: example.duckdns.org
+  - url: http://localhost:8080/api/v1
+    description: 로컬
+tags:
+  - name: auth
+    description: 증권사 발급 키 한 벌로 인증한다
+  - name: accounts
+    description: 계좌 상태 조회와 실행 제어
+  - name: strategies
+    description: 전략 목록과 상세
+  - name: devices
+    description: 알림 받을 기기 등록
+
+security:
+  - bearerAuth: []
+
+paths:
+  /auth/keys:
+    post:
+      operationId: authenticate
+      tags: [auth]
+      summary: 증권사 키 한 벌로 토큰 발급
+      description: |
+        벌의 구성은 계좌 설정이 정한다. 지금은 KIS `appKey`·`appSecret`,
+        토스 `clientId`·`clientSecret` 넷이며, 이름 집합이 다르거나 값이 하나라도 어긋나면 거절한다.
+        어느 키가 틀렸는지는 알려주지 않는다.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KeysRequest'
+      responses:
+        '200':
+          description: 토큰 쌍
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tokens'
+        '401':
+          $ref: '#/components/responses/InvalidKeys'
+        '429':
+          $ref: '#/components/responses/TooManyAttempts'
+        '503':
+          $ref: '#/components/responses/AuthNotConfigured'
+
+  /auth/refresh:
+    post:
+      operationId: refreshTokens
+      tags: [auth]
+      summary: 토큰 쌍 재발급
+      description: 쌍을 통째로 갈아끼운다. 보낸 리프레시 토큰은 이 호출로 무효가 된다.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+      responses:
+        '200':
+          description: 토큰 쌍
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tokens'
+        '401':
+          $ref: '#/components/responses/InvalidToken'
+        '429':
+          $ref: '#/components/responses/TooManyAttempts'
+
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: 인증 해제
+      description: 보낸 액세스 토큰의 쌍을 지운다. 다시 쓰려면 키를 보내 새로 받아야 한다.
+      responses:
+        '204':
+          description: 해제됨
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /accounts:
+    get:
+      operationId: listAccounts
+      tags: [accounts]
+      summary: 계좌 목록
+      description: |
+        앱이 5초마다 폴링하는 화면의 원천이다. 잔고·포지션은 서버가 마지막으로 확인한 값으로
+        즉시 답하고 갱신은 뒤에서 한다 — 브로커 왕복을 기다리지 않는다.
+        대기 계좌는 `strategy`·`todayPnl`·`cumulativePnl`·`pauseReason`이 전부 null이다.
+      responses:
+        '200':
+          description: 계좌 배열
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Account'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /accounts/{id}/portfolio:
+    get:
+      operationId: getPortfolio
+      tags: [accounts]
+      summary: 보유 종목과 잔고
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+      responses:
+        '200':
+          description: 포트폴리오
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Portfolio'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/AccountNotFound'
+        '502':
+          $ref: '#/components/responses/BrokerError'
+
+  /accounts/{id}/performance:
+    get:
+      operationId: getPerformance
+      tags: [accounts]
+      summary: 진행 중 Run의 성과
+      description: 진행 중 Run이 없는 대기 계좌는 보여줄 성과가 없다 — 204로 답한다.
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+      responses:
+        '200':
+          description: 성과
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Performance'
+        '204':
+          description: 대기 계좌
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/AccountNotFound'
+
+  /accounts/{id}/orders:
+    get:
+      operationId: listOrders
+      tags: [accounts]
+      summary: 체결된 주문 내역
+      description: 종결 시점에 저장한 체결 요약이다. 최신 주문이 먼저 온다.
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+        - name: page
+          in: query
+          description: 0부터 센다
+          required: false
+          schema:
+            type: integer
+            format: int32
+            minimum: 0
+            default: 0
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            default: 20
+      responses:
+        '200':
+          description: 주문 페이지
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderPage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/AccountNotFound'
+
+  /accounts/{id}/runs:
+    get:
+      operationId: listAccountRuns
+      tags: [accounts]
+      summary: 계좌의 운용 내역
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+      responses:
+        '200':
+          description: Run 목록
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Runs'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/AccountNotFound'
+
+  /accounts/{id}/start:
+    post:
+      operationId: startAccount
+      tags: [accounts]
+      summary: 매매 시작
+      description: |
+        전략 키를 받아 배정과 실행을 한 번에 한다. 버전은 서버가 최신으로 고르고,
+        그 Run은 시작한 버전을 끝까지 쓴다.
+        대기 계좌가 아니면 409, 전략과 계좌의 시장이 하나도 겹치지 않으면 409다.
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/UpdatedAccount'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: 없는 계좌(`ACCOUNT_NOT_FOUND`)이거나 없는 전략(`STRATEGY_NOT_FOUND`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 허용되지 않는 전이(`INVALID_TRANSITION`)이거나 겹치는 시장 없음(`MARKET_NOT_SUPPORTED`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '502':
+          $ref: '#/components/responses/BrokerError'
+
+  /accounts/{id}/pause:
+    post:
+      operationId: pauseAccount
+      tags: [accounts]
+      summary: 일시정지
+      description: 먼저 미체결 주문을 취소한다. 보유는 유지한다.
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+      responses:
+        '200':
+          $ref: '#/components/responses/UpdatedAccount'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/AccountNotFound'
+        '409':
+          $ref: '#/components/responses/InvalidTransition'
+        '502':
+          $ref: '#/components/responses/BrokerError'
+
+  /accounts/{id}/resume:
+    post:
+      operationId: resumeAccount
+      tags: [accounts]
+      summary: 재개
+      description: 청산 중에 재개하면 남은 매도 주문을 취소한다.
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+      responses:
+        '200':
+          $ref: '#/components/responses/UpdatedAccount'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/AccountNotFound'
+        '409':
+          $ref: '#/components/responses/InvalidTransition'
+        '502':
+          $ref: '#/components/responses/BrokerError'
+
+  /accounts/{id}/close:
+    post:
+      operationId: closeAccount
+      tags: [accounts]
+      summary: 회수
+      description: 새 매수 없이 전략의 매도만 한다. 보유가 0이 되면 스스로 대기로 간다.
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+      responses:
+        '200':
+          $ref: '#/components/responses/UpdatedAccount'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/AccountNotFound'
+        '409':
+          $ref: '#/components/responses/InvalidTransition'
+
+  /accounts/{id}/liquidate:
+    post:
+      operationId: liquidateAccount
+      tags: [accounts]
+      summary: 청산
+      description: |
+        먼저 미체결 주문을 취소한다. 열린 시장의 보유는 즉시 시장가로 팔고,
+        닫힌 시장의 보유는 개장 때 판다. 보유가 0이 되면 스스로 대기로 간다.
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+      responses:
+        '200':
+          $ref: '#/components/responses/UpdatedAccount'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/AccountNotFound'
+        '409':
+          $ref: '#/components/responses/InvalidTransition'
+        '502':
+          $ref: '#/components/responses/BrokerError'
+
+  /accounts/{id}/order-alert:
+    post:
+      operationId: setOrderAlert
+      tags: [accounts]
+      summary: 계좌별 체결 알림 토글
+      description: |
+        체결 알림은 이 토글과 기기 전역 스위치가 모두 켜졌을 때만 간다.
+        서버 일시정지 알림은 이 값과 무관하게 항상 간다.
+      parameters:
+        - $ref: '#/components/parameters/AccountId'
+        - name: enabled
+          in: query
+          required: true
+          schema:
+            type: boolean
+      responses:
+        '200':
+          $ref: '#/components/responses/UpdatedAccount'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/AccountNotFound'
+
+  /strategies:
+    get:
+      operationId: listStrategies
+      tags: [strategies]
+      summary: 전략 목록
+      description: 키마다 최신 버전 하나씩 온다.
+      responses:
+        '200':
+          description: 전략 배열
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Strategy'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /strategies/{key}:
+    get:
+      operationId: getStrategy
+      tags: [strategies]
+      summary: 전략 상세
+      description: |
+        `runs`는 그 전략이 돌았던 모든 계좌의 합산이다.
+        `accountId`를 주면 시작 확인 화면용으로 그 계좌의 이름·예수금이 `startAccount`에 함께 온다.
+        `accountId`가 없거나 그 계좌가 대기 상태가 아니면 `startAccount`는 null이다.
+      parameters:
+        - name: key
+          in: path
+          required: true
+          schema:
+            type: string
+          example: ma-cross
+        - name: accountId
+          in: query
+          required: false
+          schema:
+            type: string
+          example: toss-live
+      responses:
+        '200':
+          description: 전략 상세
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StrategyDetail'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: 없는 전략(`STRATEGY_NOT_FOUND`)이거나 없는 계좌(`ACCOUNT_NOT_FOUND`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '502':
+          $ref: '#/components/responses/BrokerError'
+
+  /devices:
+    post:
+      operationId: registerDevice
+      tags: [devices]
+      summary: 기기 등록
+      description: |
+        FCM 토큰과 기기 전역 알림 스위치 상태를 등록한다. 스위치가 꺼져도 토큰은 등록된다 —
+        서버 일시정지 알림은 설정과 무관하게 가야 한다.
+        같은 토큰을 다시 보내면 스위치 상태만 갱신된다.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceRequest'
+      responses:
+        '204':
+          description: 등록됨
+        '400':
+          description: 토큰이 비었다 (`DEVICE_TOKEN_REQUIRED`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    delete:
+      operationId: unregisterDevice
+      tags: [devices]
+      summary: 기기 등록 해제
+      description: 없는 토큰이어도 204다.
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: 해제됨
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: '`Authorization: Bearer <accessToken>`'
+
+  parameters:
+    AccountId:
+      name: id
+      in: path
+      required: true
+      description: 계좌 ID. 서버 설정이 선언한다
+      schema:
+        type: string
+      example: toss-live
+
+  responses:
+    UpdatedAccount:
+      description: 바뀐 뒤 계좌 상태
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Account'
+    Unauthorized:
+      description: 토큰이 없거나 만료됨 (`UNAUTHORIZED`)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    InvalidKeys:
+      description: 키 한 벌이 서버의 값과 다름 (`INVALID_KEYS`)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    InvalidToken:
+      description: 리프레시 토큰이 없거나 만료됐거나 이미 갈아끼워짐 (`INVALID_TOKEN`)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    TooManyAttempts:
+      description: 인증 시도가 한도를 넘음 (`TOO_MANY_ATTEMPTS`)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    AuthNotConfigured:
+      description: 서버에 인증 키가 주입되지 않음 (`AUTH_NOT_CONFIGURED`)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    AccountNotFound:
+      description: 없는 계좌 (`ACCOUNT_NOT_FOUND`)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    InvalidTransition:
+      description: 현재 상태에서 허용되지 않는 명령 (`INVALID_TRANSITION`)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    BrokerError:
+      description: 브로커 응답을 처리하지 못함 (`BROKER_ERROR`)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  schemas:
+    KeysRequest:
+      type: object
+      required: [keys]
+      properties:
+        keys:
+          type: object
+          description: 키 이름 → 값. 이름 집합이 서버 설정과 정확히 같아야 한다
+          additionalProperties:
+            type: string
+          examples:
+            - appKey: PS0000000000000000000000
+              appSecret: abcdef0123456789
+
+    RefreshRequest:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken:
+          type: string
+
+    Tokens:
+      type: object
+      required: [accessToken, refreshToken, expiresAt]
+      properties:
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+          description: 액세스 토큰의 만료
+          examples:
+            - '2026-09-14T03:20:00Z'
+
+    StartRequest:
+      type: object
+      required: [strategyKey]
+      properties:
+        strategyKey:
+          type: string
+          description: 버전은 보내지 않는다. 서버가 최신으로 고른다
+          examples:
+            - ma-cross
+
+    DeviceRequest:
+      type: object
+      required: [token, notificationsEnabled]
+      properties:
+        token:
+          type: string
+          description: FCM 등록 토큰
+        notificationsEnabled:
+          type: boolean
+          description: 기기 전역 알림 스위치
+
+    AccountState:
+      type: string
+      description: |
+        매매 상태. 매매가 줄어드는 순서다. 허용되지 않는 전이를 요청하면 409 `INVALID_TRANSITION`이다.
+
+        - `RUNNING` 운용 중 — 전략이 매수·매도한다. 일시정지·회수·청산할 수 있다
+        - `CLOSING` 회수 중 — 새 매수 없이 전략의 매도만 한다. 보유가 0이 되면 스스로 대기로 간다. 재개·청산할 수 있다
+        - `LIQUIDATING` 청산 중 — 열린 시장의 보유는 시장가로 팔고 닫힌 시장의 보유는 개장 때 판다.
+          보유가 0이 되면 스스로 대기로 간다. 재개할 수 있다
+        - `PAUSED` 일시정지 — 매매 없이 보유를 유지한다. 앱 사용자가 걸거나 서버가 스스로 건다.
+          서버가 건 것이면 `pauseReason`이 붙고 자동으로 풀리지 않는다. 재개·회수·청산할 수 있다
+        - `WAITING` 대기 — 진행 중 Run이 없고 보유도 없다. 시작할 수 있다
+      enum: [RUNNING, CLOSING, LIQUIDATING, PAUSED, WAITING]
+
+    Market:
+      type: string
+      description: 매매 대상 시장. `KR` 한국, `US` 미국
+      enum: [KR, US]
+
+    Currency:
+      type: string
+      description: KRW는 정수 자리, USD는 소수 둘째 자리
+      enum: [KRW, USD]
+
+    OrderSide:
+      type: string
+      description: '`BUY` 매수, `SELL` 매도'
+      enum: [BUY, SELL]
+
+    RunOutcome:
+      type: string
+      description: Run의 끝. 진행 중은 `RUNNING`, 회수로 끝났으면 `CLOSED`, 청산으로 끝났으면 `LIQUIDATED`
+      enum: [RUNNING, CLOSED, LIQUIDATED]
+
+    Money:
+      type: object
+      description: 현지 통화 가격. 자리수는 통화가 정한다
+      required: [value, currency]
+      properties:
+        value:
+          type: number
+          examples:
+            - 231.40
+        currency:
+          $ref: '#/components/schemas/Currency'
+
+    Pnl:
+      type: object
+      required: [amount, percent]
+      properties:
+        amount:
+          type: integer
+          format: int64
+          description: 원화 정수
+          examples:
+            - 25300
+        percent:
+          type: number
+          format: double
+          description: 소수 둘째 자리까지. 0.39는 0.39%를 뜻한다
+          examples:
+            - 0.39
+
+    Condition:
+      type: object
+      required: [label, text]
+      properties:
+        label:
+          type: string
+          examples:
+            - 매수
+        text:
+          type: string
+          examples:
+            - 5일선이 20일선을 상향 돌파
+
+    Strategy:
+      type: object
+      description: 앱에 보여주는 전략 정보. 평가 주기·종목 목록 같은 엔진 세부는 없다
+      required: [key, displayName, description, version, markets, conditions]
+      properties:
+        key:
+          type: string
+          examples:
+            - ma-cross
+        displayName:
+          type: string
+          examples:
+            - 이동평균 교차
+        description:
+          type: string
+          description: 한 줄 설명
+        version:
+          type: string
+          description: 시맨틱 버전
+          examples:
+            - 0.2.0
+        markets:
+          type: array
+          description: 매매 대상 시장
+          items:
+            $ref: '#/components/schemas/Market'
+        conditions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Condition'
+
+    StrategyVersion:
+      type: object
+      required: [version, releasedAt, note]
+      properties:
+        version:
+          type: string
+          examples:
+            - 0.2.0
+        releasedAt:
+          type: string
+          format: date
+          examples:
+            - '2026-07-14'
+        note:
+          type: string
+          description: 그 버전의 변경 내용
+
+    Account:
+      type: object
+      required: [id, displayName, state, strategy, todayPnl, cumulativePnl, pauseReason, orderAlertEnabled]
+      properties:
+        id:
+          type: string
+          examples:
+            - toss-live
+        displayName:
+          type: string
+          description: 브로커명. 실거래 계좌를 따로 구분하지 않는다
+          examples:
+            - 토스증권
+        state:
+          $ref: '#/components/schemas/AccountState'
+        strategy:
+          anyOf:
+            - $ref: '#/components/schemas/Strategy'
+            - type: 'null'
+          description: 진행 중 Run이 쓰는 전략. 대기 계좌는 null
+        todayPnl:
+          anyOf:
+            - $ref: '#/components/schemas/Pnl'
+            - type: 'null'
+          description: 직전 세션 종료 시점 대비 손익. 견줄 스냅샷이 없거나 브로커가 답하지 않으면 null
+        cumulativePnl:
+          anyOf:
+            - $ref: '#/components/schemas/Pnl'
+            - type: 'null'
+          description: 진행 중 Run의 손익. 대기 계좌는 null
+        pauseReason:
+          type: [string, 'null']
+          description: 서버 일시정지의 사유. `PAUSED`가 아니거나 앱 사용자가 건 일시정지면 null. 자동으로 풀리지 않는다
+          examples:
+            - 브로커 오류가 3회 연속으로 일어나 매매를 멈췄습니다
+        orderAlertEnabled:
+          type: boolean
+          description: 계좌별 체결 알림 토글
+
+    Holding:
+      type: object
+      required: [name, quantity, currentPrice, averagePrice, valuationAmount, pnl]
+      properties:
+        name:
+          type: string
+          examples:
+            - AAPL
+        quantity:
+          type: number
+          description: 주식 수량. 소수점 매수를 주는 브로커가 있어 소수일 수 있다
+          examples:
+            - 4
+            - 2.5
+        currentPrice:
+          $ref: '#/components/schemas/Money'
+        averagePrice:
+          $ref: '#/components/schemas/Money'
+        valuationAmount:
+          type: integer
+          format: int64
+          description: 원화 평가 금액
+        pnl:
+          $ref: '#/components/schemas/Pnl'
+
+    Portfolio:
+      type: object
+      required: [valuationAmount, purchaseAmount, cashAmount, holdings]
+      properties:
+        valuationAmount:
+          type: integer
+          format: int64
+        purchaseAmount:
+          type: integer
+          format: int64
+        cashAmount:
+          type: integer
+          format: int64
+          description: 예수금
+        holdings:
+          type: array
+          items:
+            $ref: '#/components/schemas/Holding'
+
+    Performance:
+      type: object
+      required: [todayPnl, cumulativePnl, initialEquity, startedAt]
+      properties:
+        todayPnl:
+          anyOf:
+            - $ref: '#/components/schemas/Pnl'
+            - type: 'null'
+        cumulativePnl:
+          $ref: '#/components/schemas/Pnl'
+        initialEquity:
+          type: integer
+          format: int64
+          description: Run 시작 시점 자산. 누적 손익 퍼센트의 분모다
+        startedAt:
+          type: string
+          format: date-time
+          examples:
+            - '2026-09-12T00:05:00Z'
+
+    Order:
+      type: object
+      description: 종결 시점에 저장한 체결 요약
+      required: [id, stockName, side, quantity, price, amount, realizedPnl]
+      properties:
+        id:
+          type: string
+          examples:
+            - ord-3
+        stockName:
+          type: string
+          examples:
+            - 삼성전자
+        side:
+          $ref: '#/components/schemas/OrderSide'
+        quantity:
+          type: number
+          description: 주식 수량. 소수점 매수를 주는 브로커가 있어 소수일 수 있다
+          examples:
+            - 10
+            - 2.5
+        price:
+          $ref: '#/components/schemas/Money'
+        amount:
+          type: integer
+          format: int64
+          description: 체결 당시 환율로 고정한 원화 금액
+        realizedPnl:
+          anyOf:
+            - $ref: '#/components/schemas/Pnl'
+            - type: 'null'
+          description: 평균 매수 단가 기준 매도 차익. 매수는 null
+
+    OrderPage:
+      type: object
+      required: [totalCount, orders]
+      properties:
+        totalCount:
+          type: integer
+          format: int64
+          description: 페이지가 아니라 전체 건수
+        orders:
+          type: array
+          items:
+            $ref: '#/components/schemas/Order'
+
+    RunSummary:
+      type: object
+      required: [id, strategyName, version, accountId, accountName, outcome, hours, pnl]
+      properties:
+        id:
+          type: string
+          examples:
+            - run-5
+        strategyName:
+          type: string
+          description: 그 Run이 시작한 버전의 표시명
+        version:
+          type: string
+          examples:
+            - 0.2.0
+        accountId:
+          type: string
+        accountName:
+          type: string
+        outcome:
+          $ref: '#/components/schemas/RunOutcome'
+        hours:
+          type: integer
+          format: int32
+          description: 운용 시간
+        pnl:
+          $ref: '#/components/schemas/Pnl'
+          description: 마지막으로 확인한 자산과 시작 시점 자산의 차이. 분모는 시작 시점 자산
+
+    Runs:
+      type: object
+      required: [accountName, runs]
+      properties:
+        accountName:
+          type: string
+        runs:
+          type: array
+          items:
+            $ref: '#/components/schemas/RunSummary'
+
+    StartAccount:
+      type: object
+      description: 시작 확인 화면용. 예수금은 브로커가 원천이다
+      required: [id, name, cashAmount]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        cashAmount:
+          type: integer
+          format: int64
+
+    StrategyDetail:
+      type: object
+      required: [strategy, note, versions, runs, startAccount]
+      properties:
+        strategy:
+          $ref: '#/components/schemas/Strategy'
+        note:
+          type: string
+          description: 상세 설명
+        versions:
+          type: array
+          description: 버전 내역. 최신이 먼저
+          items:
+            $ref: '#/components/schemas/StrategyVersion'
+        runs:
+          type: array
+          description: 그 전략이 돌았던 모든 계좌의 합산 운용 내역
+          items:
+            $ref: '#/components/schemas/RunSummary'
+        startAccount:
+          anyOf:
+            - $ref: '#/components/schemas/StartAccount'
+            - type: 'null'
+
+    Error:
+      type: object
+      description: '`message`는 사용자에게 그대로 보여줄 수 있는 문장이다'
+      required: [code, message, details]
+      properties:
+        code:
+          type: string
+          examples:
+            - INVALID_TRANSITION
+        message:
+          type: string
+          examples:
+            - 대기 계좌는 일시정지할 수 없습니다
+        details:
+          type: array
+          items:
+            type: string

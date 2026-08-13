@@ -1,0 +1,17 @@
+{
+  "id": "toss-live",
+  "displayName": "토스증권",
+  "state": "RUNNING",
+  "strategy": {
+    "key": "ma-cross",
+    "displayName": "이동평균 교차",
+    "description": "단기·장기 이동평균 교차로 매수·매도",
+    "version": "0.2.0",
+    "markets": ["KR", "US"],
+    "conditions": [{ "label": "매수", "text": "5일선이 20일선을 상향 돌파" }]
+  },
+  "todayPnl": { "amount": 25300, "percent": 0.39 },
+  "cumulativePnl": { "amount": 983259, "percent": 17.93 },
+  "pauseReason": null,
+  "orderAlertEnabled": true
+}

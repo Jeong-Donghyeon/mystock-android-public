@@ -1,0 +1,15 @@
+<resources>
+    <string name="settings_title">설정</string>
+    <string name="settings_notification">알림</string>
+    <string name="settings_key_auth">키 인증</string>
+    <string name="settings_unauthenticated_note">미인증 시 샘플 데이터가, 인증 완료 시 실제 계좌가 연결됩니다.</string>
+    <string name="settings_authenticated_note">실제 계좌가 연결되어 있습니다.</string>
+    <string name="settings_key_label" translatable="false">key-%1$d</string>
+    <string name="settings_key_placeholder">키를 붙여 넣으세요</string>
+    <string name="settings_authenticate">인증</string>
+    <string name="settings_revoke">인증 해제</string>
+    <string name="settings_version">버전</string>
+    <string name="settings_keys_incomplete">키 %1$d개를 모두 붙여 넣으세요</string>
+    <string name="settings_auth_failed">키를 인증하지 못했습니다</string>
+    <string name="settings_revoke_failed">인증을 해제하지 못했습니다</string>
+</resources>

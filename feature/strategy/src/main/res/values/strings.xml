@@ -1,0 +1,16 @@
+<resources>
+    <string name="strategies_title">전략</string>
+
+    <string name="strategy_versions_title">버전 내역</string>
+    <string name="strategy_versions_no_run">운용 없음</string>
+    <string name="strategy_versions_run_summary">%1$d회 · 평균 %2$s</string>
+
+    <string name="strategy_detail_title">전략 상세</string>
+    <string name="strategy_detail_versions">버전 내역</string>
+    <string name="strategy_detail_all_accounts">전체 계좌</string>
+    <string name="strategy_detail_all">전체</string>
+    <string name="strategy_detail_account_count">%1$d개 계좌</string>
+    <string name="strategy_detail_start">시작</string>
+    <string name="strategy_detail_start_note">위 조건대로 매매를 시작합니다. 앱을 꺼도 서버가 계속 매매합니다. 홈에서 언제든 일시정지하거나 청산할 수 있습니다.</string>
+    <string name="strategy_detail_start_failed">매매를 시작하지 못했습니다</string>
+</resources>

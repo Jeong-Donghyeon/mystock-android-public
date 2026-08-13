@@ -1,0 +1,27 @@
+{
+  "strategy": {
+    "key": "ma-cross",
+    "displayName": "이동평균 교차",
+    "description": "단기·장기 이동평균 교차로 매수·매도",
+    "version": "0.2.0",
+    "markets": ["KR", "US"],
+    "conditions": [{ "label": "매수", "text": "5일선이 20일선을 상향 돌파" }]
+  },
+  "note": "5일 이동평균이 20일 이동평균을 위로 지나면 추세 시작으로 보고 매수합니다.",
+  "versions": [
+    { "version": "0.2.0", "releasedAt": "2026-07-14", "note": "신호 계산을 장 마감 후 하루 한 번으로 변경" }
+  ],
+  "runs": [
+    {
+      "id": "run-5",
+      "strategyName": "이동평균 교차",
+      "version": "0.2.0",
+      "accountId": "toss-live",
+      "accountName": "토스증권",
+      "outcome": "RUNNING",
+      "hours": 17,
+      "pnl": { "amount": 983259, "percent": 17.93 }
+    }
+  ],
+  "startAccount": null
+}

@@ -1,0 +1,6 @@
+{
+  "account.json": ["$.todayPnl"],
+  "account-paused.json": ["$.todayPnl", "$.pauseReason"],
+  "performance.json": ["$.todayPnl"],
+  "order-page.json": ["$.orders[*].realizedPnl"]
+}

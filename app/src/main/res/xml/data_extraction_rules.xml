@@ -1,19 +1,13 @@
-<?xml version="1.0" encoding="utf-8"?><!--
-   Sample data extraction rules file; uncomment and customize as necessary.
-   See https://developer.android.com/about/versions/12/backup-restore#xml-changes
-   for details.
--->
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 인증 토큰과 푸시 토큰은 이 기기의 것이라 클라우드 백업에도 기기 이전에도 싣지 않는다.
+     allowBackup="false"만으로는 부족하다. Android 12부터는 제조사에 따라 기기 이전을 막지 않는다 -->
 <data-extraction-rules>
     <cloud-backup>
-        <!-- TODO: Use <include> and <exclude> to control what is backed up.
-        <include .../>
-        <exclude .../>
-        -->
+        <exclude domain="sharedpref" path="auth.xml" />
+        <exclude domain="sharedpref" path="device.xml" />
     </cloud-backup>
-    <!--
     <device-transfer>
-        <include .../>
-        <exclude .../>
+        <exclude domain="sharedpref" path="auth.xml" />
+        <exclude domain="sharedpref" path="device.xml" />
     </device-transfer>
-    -->
 </data-extraction-rules>

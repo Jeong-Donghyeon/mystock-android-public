@@ -1,0 +1,10 @@
+{
+  "id": "kis-mock",
+  "displayName": "한국투자증권",
+  "state": "WAITING",
+  "strategy": null,
+  "todayPnl": null,
+  "cumulativePnl": null,
+  "pauseReason": null,
+  "orderAlertEnabled": false
+}
